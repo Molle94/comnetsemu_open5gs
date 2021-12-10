@@ -1,0 +1,12 @@
+diff --git a/Vagrantfile b/Vagrantfile
+index f59de8d..05433ef 100644
+--- a/Vagrantfile
++++ b/Vagrantfile
+@@ -196,6 +196,7 @@ But the script will check and perform upgrade automatically and it does not take
+     comnetsemu.vm.network "forwarded_port", guest: 8082, host: 8082
+     comnetsemu.vm.network "forwarded_port", guest: 8083, host: 8083
+     comnetsemu.vm.network "forwarded_port", guest: 8084, host: 8084
++    comnetsemu.vm.network "forwarded_port", guest: 3000, host: 3000
+     # - Uncomment the underlying line to add a private network to the VM.
+     #   If VirtualBox is used as the hypervisor, this means adding or using (if already created) a host-only interface to the VM.
+     # comnetsemu.vm.network "private_network", ip: "192.168.0.2"
