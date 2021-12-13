@@ -23,7 +23,6 @@ from mininet.term import makeTerm, makeTerms
 def getTopo(interactive):
     bind_dir = "/home/vagrant"
     parent_dir = "/home/vagrant/comnetsemu/comnetsemu_open5gs"
-    # env = dotenv_values(bind_dir + "./env")
 
     net = Containernet(controller=Controller, link=TCLink)
     
@@ -35,6 +34,14 @@ def getTopo(interactive):
                                 docker_args={
                                     "ports": { "3000/tcp": 3000 },
                                     "volumes": {
+                                        parent_dir + "/open5gs/open5gs/src": {
+                                            "bind": "/open5gs/src",
+                                            "mode": "rw",
+                                        },
+                                        parent_dir + "/open5gs/open5gs/lib": {
+                                            "bind": "/open5gs/lib",
+                                            "mode": "rw",
+                                        },
                                         bind_dir + "/log" : {
                                             "bind": "/open5gs/install/var/log/open5gs",
                                             "mode": "rw",
@@ -151,7 +158,6 @@ def getTopo(interactive):
         info("*** adding switches\n")
         s1 = net.addSwitch("s1")
         # s2 = net.addSwitch("s2")
-        # s3 = net.AddSwitch("s3")
 
         info("*** adding links\n")
         # net.addLink(s1, s2,bw=1000, delay="10ms", intfName1="s1-s2", intfName2="s2-s1")

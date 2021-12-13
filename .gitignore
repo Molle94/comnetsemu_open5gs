@@ -1,0 +1,13 @@
+/open5gs/open5gs
+
+*.log
+*.tmp
+.vscode
+
+# Compiled Object files
+*.o
+*.obj
+
+# Executables
+*.exe
+*.out

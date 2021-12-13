@@ -1,123 +1,29 @@
-# BSD 2-Clause License
+FROM ubuntu:20.04
 
-# Copyright (c) 2020, Supreeth Herle
-# All rights reserved.
-
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-
-# 1. Redistributions of source code must retain the above copyright notice, this
-#    list of conditions and the following disclaimer.
-
-# 2. Redistributions in binary form must reproduce the above copyright notice,
-#    this list of conditions and the following disclaimer in the documentation
-#    and/or other materials provided with the distribution.
-
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-# Todo (Malte): Use local sources for open5gs
-# +keep source files in Docker -> no incremental build
-# ?Is there an easier way to fill mongo instead of using the WebUI?
-
-FROM ubuntu:focal as builder
-
-ENV DEBIAN_FRONTEND=noninteractive
 ENV LD_LIBRARY_PATH=/open5gs/install/lib/x86_64-linux-gnu
 
-# Install updates and dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3-pip \
-        python3-setuptools \
-        python3-wheel \
-        ninja-build \
-        build-essential \
-        flex \
-        bison \
-        git \
-        libsctp-dev \
-        libgnutls28-dev \
-        libgcrypt-dev \
-        libssl-dev \
-        libidn11-dev \
-        libmongoc-dev \
-        libbson-dev \
-        libyaml-dev \
-        meson \
-        mongodb \
-        curl \
-        gnupg \
-        ca-certificates \
-        libmicrohttpd-dev \
-        libcurl4-gnutls-dev \
-        libnghttp2-dev \
-        libtins-dev \
-        libidn11-dev
+RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y\
+        python3-pip python3-setuptools python3-wheel ninja-build \
+        build-essential flex bison git libsctp-dev libgnutls28-dev \
+        libgcrypt-dev libssl-dev libidn11-dev libmongoc-dev libbson-dev \
+        libyaml-dev libnghttp2-dev libmicrohttpd-dev libcurl4-gnutls-dev \
+        libtins-dev meson curl ca-certificates netbase ifupdown net-tools \
+        iputils-ping iptables tcpdump iperf3 mongodb
 
+# apt install gets deprecated nodejs
 RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && apt-get install -y nodejs
-
-# Get open5gs code and install
-RUN git clone --recursive https://github.com/open5gs/open5gs && cd open5gs && \
-    git checkout tags/v2.3.2 && meson build --prefix=`pwd`/install && \
-    ninja -C build && cd build && ninja install
-
-# Building WebUI of open5gs
-RUN cd open5gs/webui && npm ci --no-optional
-
-# Build final image
-FROM ubuntu:focal
-
-ENV DEBIAN_FRONTEND=noninteractive
-ENV LD_LIBRARY_PATH=/open5gs/install/lib/x86_64-linux-gnu
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        curl \
-        ca-certificates \
-        libssl-dev \
-        libyaml-dev \
-        libmicrohttpd-dev \
-        libmongoc-dev \
-        libsctp-dev \
-        libcurl4-gnutls-dev \
-        libtins-dev \
-        libidn11-dev \
-        netbase \
-        ifupdown \
-        net-tools \
-        iputils-ping \
-        python3-setuptools \
-        python3-wheel \
-        python3-pip \
-        mongodb \
-        iptables \
-        tcpdump \
-        iperf3 && \
-    apt-get autoremove -y && apt-get autoclean
-
-RUN pip3 install click
-
-RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && apt-get install -y nodejs && \
-    apt-get remove -y curl && apt-get autoremove -y && apt-get autoclean
 
 RUN update-ca-certificates
 
-COPY --from=builder /open5gs/install/bin /open5gs/install/bin
-COPY --from=builder /open5gs/install/etc /open5gs/install/etc
-COPY --from=builder /open5gs/install/lib /open5gs/install/lib
-COPY --from=builder /open5gs/webui /open5gs/webui
+# Todo (Malte): Create TUN device here
 
-# COPY docker_init.sh /
-# RUN chmod +x /docker_init.sh
+# Copy local open5gs source and install
+ENV CORE_PATH /open5gs
+RUN mkdir -p ${CORE_PATH}
+COPY open5gs ${CORE_PATH}
+WORKDIR ${CORE_PATH}
+RUN make install
+RUN cd ${CORE_PATH}/webui && npm ci --no-optional
 
-# Set the working directory to open5gs
-WORKDIR /open5gs
+WORKDIR ${CORE_PATH}
+CMD ["bash"]
