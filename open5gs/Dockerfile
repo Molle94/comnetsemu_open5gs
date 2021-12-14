@@ -15,8 +15,6 @@ RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && apt-get install
 
 RUN update-ca-certificates
 
-# Todo (Malte): Create TUN device here
-
 # Copy local open5gs source and install
 ENV CORE_PATH /open5gs
 RUN mkdir -p ${CORE_PATH}
