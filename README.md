@@ -33,7 +33,8 @@ To check whether everything was setup successfully, in a new window enter the UE
 To end the emulation terminate core, gnb and ue with `ctrl + c`, run `quit` in the mininet cli and eventually clean up with `sudo mn -c`.
 
 ### UE registration
-UEs can be configured using the WebUI of open5gs. In your browser open `localhost:3000`. The configuration is then as follows:  
+UEs can be configured using the WebUI of open5gs. In your browser open `localhost:3000` (username: admin, password: 1423). 
+The configuration is then as follows:  
 - IMSI: 901700000000001  
 - Key: 465B5CE8B199B49FAA5F0A2EE238A6BC (remove spaces from the default)  
 - OPc: E8ED289DEBA952E4283B54E88E6183CA (remove spaces from the default)  
