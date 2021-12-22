@@ -30,7 +30,7 @@ ue:  $ ./nr-ue -c /mnt/ueransim/open5gs-ue.yaml
 After the first boot of the 5GC, the UE must be registered in the database through WebUI (see below).
 To check whether everything was setup successfully, in a new window enter the UE container with `docker exec -it ue /bin/bash` and start a ping with `ping -I uesimtun0 -c 3 www.google.com`.
 
-To end the emulation terminate core, gnb and ue with `ctrl + c`, run `quit` in the mininet cli and eventually clean up with `sudo mn -c`.
+To quit the interactive emulation terminate core, gnb and ue with `ctrl + c`, run `quit` in the mininet cli.
 
 ### UE registration
 UEs can be configured using the WebUI of open5gs. In your browser open `localhost:3000` (username: admin, password: 1423). 

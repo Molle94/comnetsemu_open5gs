@@ -6,19 +6,16 @@ About: Simple networkwork topology with one host running the 5GC (Cp and UP),
 another host is running the GNB, and the last one the UE.
 """
 
-import os
-import sys
-import subprocess
+import time
 import argparse
 
 from comnetsemu.cli import CLI, spawnXtermDocker
 from comnetsemu.net import Containernet, VNFManager
+from comnetsemu.clean import cleanup
 from mininet.log import error, info, setLogLevel
 from mininet.link import TCLink
 from mininet.node import Controller
-from mininet.term import makeTerm, makeTerms
 
-# from dotenv import dotenv_values
 
 def getTopo(interactive):
     bind_dir = "/home/vagrant"
@@ -96,7 +93,7 @@ def getTopo(interactive):
                                     # "devices": "/dev/net/tun:/dev/net/tun:rwm"
                                 # })
 
-        info("*** adding GNB\n")
+        info("*** adding gNB\n")
         gnb = net.addDockerHost("gnb",
                                 dimage="ueransim",
                                 ip="192.168.0.131/24",
@@ -162,12 +159,12 @@ def getTopo(interactive):
         info("*** adding links\n")
         # net.addLink(s1, s2,bw=1000, delay="10ms", intfName1="s1-s2", intfName2="s2-s1")
 
-        net.addLink(ue, s1, bw=1000, delay="1ms", intfName1="ue-s1", intfName2="s1-ue")
-        net.addLink(gnb, s1, bw=1000, delay="1ms", intfName1="gnb-s1", intfName2="s1-gnb")
-        net.addLink(core, s1, bw=1000, delay="1ms", intfName1="5gc-s1", intfName2="s1-5gc")
+        net.addLink(ue, s1, bw=1000, delay="1ms", intfName1="ue1-s1", intfName2="s1-ue1")
+        net.addLink(gnb, s1, bw=1000, delay="1ms", intfName1="gnb1-s1", intfName2="s1-gnb1")
+        net.addLink(core, s1, bw=1000, delay="1ms", intfName1="core1-s1", intfName2="s1-core1")
 
-        # net.addLink(core, s2, bw=1000, delay="1ms", inftName1="5gc-s2", intfName2="s2-5gc")
-        # net.addLink(upf, s2, bw=1000, delay="1ms", intfName1="upf-s2", intfName2="s2-upf")
+        # net.addLink(core, s2, bw=1000, delay="1ms", inftName1="core1-s2", intfName2="s2-core1")
+        # net.addLink(upf, s2, bw=1000, delay="1ms", intfName1="upf1-s2", intfName2="s2-upf1")
 
         info("*** starting network")
         net.start()
@@ -178,7 +175,22 @@ def getTopo(interactive):
             spawnXtermDocker("gnb")
             spawnXtermDocker("ue")
 
-        CLI(net)
+            CLI(net)
+        else:
+            info("*** booting 5G core\n")
+            core.sendCmd("./install/etc/open5gs/start_open5gs.sh")
+            time.sleep(10)
+    
+            info("*** starting gNB\n")
+            gnb.sendCmd("./nr-gnb -c /mnt/ueransim/open5gs-gnb.yaml")
+            time.sleep(2)
+    
+            info("*** connecting UE\n")
+            ue.sendCmd("./nr-ue -c /mnt/ueransim/open5gs-ue.yaml")
+            time.sleep(1)
+
+            input("Emulation setup ready. Press enter to terminate ")
+
 
     except Exception as e:
         error("*** emulation has errors: ")
@@ -191,7 +203,9 @@ def getTopo(interactive):
 
     finally:
         info("*** stopping network\n")
-        net.stop()
+        if interactive:
+            net.stop()
+        cleanup()
 
 
 if __name__ == "__main__":
