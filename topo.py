@@ -187,6 +187,7 @@ def getTopo(interactive):
     
             info("*** connecting UE\n")
             ue.sendCmd("./nr-ue -c /mnt/ueransim/open5gs-ue.yaml")
+            spawnXtermDocker("ue")
             time.sleep(1)
 
             input("Emulation setup ready. Press enter to terminate ")
