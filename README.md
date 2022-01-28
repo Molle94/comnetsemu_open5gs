@@ -17,7 +17,7 @@ Deploy open5gs and ueransim in comnetsemu to perform cp state access measurement
 7. Build UERANSIM and open5gs container with the respective `build_image.sh` script in `ueransim` and `open5gs`.
 
 ## Experiments
-Run the emulation 
+### Run the emulation interactively
 ```
 $ sudo python3 topo.py -i
 ```
@@ -29,8 +29,15 @@ ue:  $ ./nr-ue -c /mnt/ueransim/open5gs-ue.yaml
 ```
 After the first boot of the 5GC, the UE must be registered in the database through WebUI (see below).
 To check whether everything was setup successfully, in a new window enter the UE container with `docker exec -it ue /bin/bash` and start a ping with `ping -I uesimtun0 -c 3 www.google.com`.
+In order to simulate some realistic machine type communication (MTC) run `python3 ssmm.py` from the `/traffic` directory of the UE container.
 
 To quit the interactive emulation terminate core, gnb and ue with `ctrl + c`, run `quit` in the mininet cli.
+
+### Run the (half) automatically
+```
+sudo python3 topo.py
+```
+Now 5GC, gNB and UE are started from the `topo.py` script and only an XTerm for the UE opens up. From this XTerm the same commands as above could be run, for instance `ping` or `ssmm.py`.
 
 ### UE registration
 UEs can be configured using the WebUI of open5gs. In your browser open `localhost:3000` (username: admin, password: 1423). 

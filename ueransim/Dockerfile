@@ -79,6 +79,8 @@ RUN apt-get update && \
         iputils-ping \
         curl \
         tcpdump \
+        python3 \
+        python3-numpy \
         iperf3 && \
     apt-get autoremove -y && apt-get autoclean
 

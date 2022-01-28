@@ -13,6 +13,8 @@ if ! grep "ogstun" /proc/net/dev > /dev/null; then
     iptables -t nat -A POSTROUTING -s 10.45.0.1/16 ! -o ogstun -j MASQUERADE
 fi
 
+iperf3 -s -D -B 10.45.0.1
+
 ./install/bin/open5gs-nrfd & 
 sleep 3
 ./install/bin/open5gs-smfd &

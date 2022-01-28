@@ -131,6 +131,10 @@ def getTopo(interactive):
                                             "bind": "/mnt/ueransim",
                                             "mode": "rw",
                                         },
+                                        parent_dir + "/traffic": {
+                                            "bind": "/traffic",
+                                            "mode:": "rw",
+                                        },
                                         bind_dir + "/log": {
                                             "bind": "/mnt/log",
                                             "mode": "rw",
