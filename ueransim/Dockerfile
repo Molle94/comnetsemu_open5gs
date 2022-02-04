@@ -81,6 +81,7 @@ RUN apt-get update && \
         tcpdump \
         python3 \
         python3-numpy \
+        python3-psutil \
         iperf3 && \
     apt-get autoremove -y && apt-get autoclean
 

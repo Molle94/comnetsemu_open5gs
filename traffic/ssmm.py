@@ -4,15 +4,44 @@ import shlex
 import random
 import subprocess
 import numpy as np
+import psutil
 
 
 random.seed(time.time())
 
+def register_ue(conf):
+    if not conf["ue_registered"]:
+        global g_tun_ip
+
+        cmd = "./nr-cli imsi-901700000000001 --exec 'ps-establish IPv4 --sst 1 --sd 1 --dnn internet'"
+        cmd = shlex.split(cmd)
+        ret = subprocess.run(cmd)
+        conf["ue_registered"] = True
+
+        print("Waiting for tun interface...")
+        ifs = psutil.net_if_addrs()
+
+        while 'uesimtun0' not in ifs:
+            time.sleep(1)
+            ifs = psutil.net_if_addrs()
+
+        print("tun interface is up")
+
+        tun_if = ifs['uesimtun0']
+        g_tun_ip = tun_if[0].address
+
+
 def off(conf=None):
-    print("")
+    if conf["ue_registered"]:
+        cmd = "./nr-cli imsi-901700000000001 --exec 'deregister disable-5g'"
+        cmd = shlex.split(cmd)
+        ret = subprocess.run(cmd)
+        conf["ue_registered"] = False
 
 # Let event detection happen after this state as well. Very small probability though
 def periodic_update(conf):
+    register_ue(conf)
+
     rate = conf["rate_pu"]
     transmit_time = conf["transmit_time"]
 
@@ -22,6 +51,8 @@ def periodic_update(conf):
 
 # Maybe try to modify bearer for fast transmission
 def event_driven(conf):
+    register_ue(conf)
+
     rate = conf["rate_ed"]
     transmit_time = conf["transmit_time"]
 
@@ -30,6 +61,8 @@ def event_driven(conf):
     ret = subprocess.run(cmd)
 
 def payload_exchange(conf):
+    register_ue(conf)
+
     rate = conf["rate_pe"]
     time_pe = random.expovariate(conf["lam_pe"])
 
@@ -168,6 +201,7 @@ if __name__ == "__main__":
         "lam_pe": args.l_pe,
         "server_addr": args.s,
         "client_addr": args.c,
+        "ue_registered": True
     }
 
     g_server_ip = args.s
