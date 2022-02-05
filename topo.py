@@ -16,13 +16,51 @@ from mininet.log import error, info, setLogLevel
 from mininet.link import TCLink
 from mininet.node import Controller
 
+def spawnTmuxWindow(dcontainer_name: str, cmd: str = None):
+    """Spawn the xterm and attach to a Docker container with docker exec -it
+        container. Bash is used as the interactive shell.
+
+        :param dcontainer_name (str): Name of a Docker container.
+        """
+    import libtmux
+
+    SESSION_NAME =  "open5gs_topo"
+
+    server = libtmux.Server()
+
+    session = server.find_where({"session_name": SESSION_NAME})
+
+    if session is None:
+        session = server.new_session(SESSION_NAME)
+
+    window = session.find_where({"window_name": f"dockercontainer:{dcontainer_name}"})
+
+    if window is None:
+        window = session.new_window(f"dockercontainer:{dcontainer_name}")
+
+    if cmd is None:
+        shell = "bash"
+        cmd = f"docker exec -it {dcontainer_name} {shell}"
+
+    pane = window.attached_pane
+    pane.send_keys(cmd)
+    return window
+
+def spawnWindow(dcontainer_name: str, cmd: str = None):
+    global use_tmux
+    if use_tmux:
+        spawnTmuxWindow(dcontainer_name, cmd)
+    else:
+        if cmd is not None:
+            warn("*** spawnWindow with cmd is not supported for xterm window")
+        spawnXtermDocker(dcontainer_name)
 
 def getTopo(interactive):
     bind_dir = "/home/vagrant"
     parent_dir = "/home/vagrant/comnetsemu/comnetsemu_open5gs"
 
     net = Containernet(controller=Controller, link=TCLink)
-    
+
     try:
         info("*** adding 5GC\n")
         core = net.addDockerHost("5gc",
@@ -175,23 +213,23 @@ def getTopo(interactive):
         net.pingAll()
 
         if interactive:
-            spawnXtermDocker("5gc")
-            spawnXtermDocker("gnb")
-            spawnXtermDocker("ue")
+            spawnWindow("5gc")
+            spawnWindow("gnb")
+            spawnWindow("ue")
 
             CLI(net)
         else:
             info("*** booting 5G core\n")
             core.sendCmd("./install/etc/open5gs/start_open5gs.sh")
             time.sleep(10)
-    
+
             info("*** starting gNB\n")
             gnb.sendCmd("./nr-gnb -c /mnt/ueransim/open5gs-gnb.yaml")
             time.sleep(2)
-    
+
             info("*** connecting UE\n")
             ue.sendCmd("./nr-ue -c /mnt/ueransim/open5gs-ue.yaml")
-            spawnXtermDocker("ue")
+            spawnWindow("ue")
             time.sleep(1)
 
             input("Emulation setup ready. Press enter to terminate ")
@@ -229,11 +267,21 @@ if __name__ == "__main__":
                         nargs="?",
                         help="Set log level to debug")
 
+    parser.add_argument("-t",
+                        default=False,
+                        const=True,
+                        type=bool,
+                        nargs="?",
+                        help="Use tmux instead of xterm")
+
     args = parser.parse_args()
 
     if args.d:
         setLogLevel("debug")
     else:
         setLogLevel("info")
+
+    global use_tmux
+    use_tmux = args.t
 
     getTopo(args.i)
