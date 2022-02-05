@@ -45,6 +45,8 @@ def periodic_update(conf):
     rate = conf["rate_pu"]
     transmit_time = conf["transmit_time"]
 
+    print(f"periodic update: rate {rate}, duration: {transmit_time}")
+
     cmd = f"iperf3 -c {g_server_ip} -B {g_tun_ip} -t {transmit_time} -b {rate}"
     cmd = shlex.split(cmd)
     ret = subprocess.run(cmd)
@@ -56,6 +58,8 @@ def event_driven(conf):
     rate = conf["rate_ed"]
     transmit_time = conf["transmit_time"]
 
+    print(f"event driven: rate {rate}, duration: {transmit_time}")
+
     cmd = f"iperf3 -c {g_server_ip} -B {g_tun_ip} -t {transmit_time} -b {rate}"
     cmd = shlex.split(cmd)
     ret = subprocess.run(cmd)
@@ -64,9 +68,11 @@ def payload_exchange(conf):
     register_ue(conf)
 
     rate = conf["rate_pe"]
-    time_pe = random.expovariate(conf["lam_pe"])
+    time_pe = random.expovariate(conf["lam_pe"]) + 1  # iperf3 can't handle time less than 1 second
 
-    cmd = f"iperf3 -c {g_server_ip} -B {g_tun_ip} -t {time_pe} -b {rate}"
+    print(f"payload exchange: rate {rate}, duration: {time_pe:.0f}")
+
+    cmd = f"iperf3 -c {g_server_ip} -B {g_tun_ip} -t {time_pe:.0f} -b {rate}"
     cmd = shlex.split(cmd)
     ret = subprocess.run(cmd)
 
