@@ -1,5 +1,6 @@
 import argparse
 import time
+import json
 import shlex
 import random
 import subprocess
@@ -8,6 +9,22 @@ import psutil
 
 
 random.seed(time.time())
+
+event_json = list()
+
+def store_list_as_json(filename, data):
+    with open(filename, "w") as fout:
+        json.dump(data, fout, indent=2)
+        fout.write("\n")
+
+def log_event(event, bytes):
+    event_data = {
+        "event": event,
+        "ts": time.time(),
+        "bytes": bytes
+    }
+
+    event_json.append(event_data)
 
 def get_tun_ip():
     ifs = psutil.net_if_addrs()
@@ -56,42 +73,51 @@ def get_total_bytes():
 
 
 def off(conf=None):
-    if conf["ue_registered"]:
-        cmd = "./nr-cli imsi-901700000000001 --exec 'deregister disable-5g'"
-        cmd = shlex.split(cmd)
-        ret = subprocess.run(cmd)
-        conf["ue_registered"] = False
+    print("off")
+    # if conf["ue_registered"]:
+        # cmd = "./nr-cli imsi-901700000000001 --exec 'deregister disable-5g'"
+        # cmd = shlex.split(cmd)
+        # ret = subprocess.run(cmd)
+        # conf["ue_registered"] = False
 
 # Let event detection happen after this state as well. Very small probability though
 def periodic_update(conf):
-    register_ue(conf)
+    # register_ue(conf)
 
     transmit_rate = conf["rate_pu"]
     transmit_bytes = conf["bytes_pu"]
 
     print(f"periodic update: rate {transmit_rate}, bytes: {transmit_bytes}")
-    run_iperf(transmit_rate, transmit_bytes)
+    # run_iperf(transmit_rate, transmit_bytes)
+
+    log_event("pu", transmit_bytes)
 
 # Maybe try to modify bearer for fast transmission
 def event_driven(conf):
-    register_ue(conf)
+    # register_ue(conf)
 
     transmit_rate = conf["rate_ed"]
     transmit_bytes = get_total_bytes()
 
     print(f"event driven: rate {transmit_rate}, bytes: {transmit_bytes}")
-    run_iperf(transmit_rate, transmit_bytes)
+    # run_iperf(transmit_rate, transmit_bytes)
+
+    log_event("ed", transmit_bytes)
 
 def payload_exchange(conf):
-    register_ue(conf)
+    # register_ue(conf)
 
     trasnmit_rate = conf["rate_pe"]
 
     # Send several burst with payload sizes distributed according to IMIX
     print(f"payload exchange: rate {trasnmit_rate}")
+    transmit_bytes_list = list()
     for burst in range(10):
         transmit_bytes = get_total_bytes()
-        run_iperf(trasnmit_rate, transmit_bytes)
+        transmit_bytes_list.append(transmit_bytes)
+        # run_iperf(trasnmit_rate, transmit_bytes)
+
+    log_event("pe", transmit_bytes_list)
 
 g_state_table = {
     0: off,
@@ -143,6 +169,7 @@ def run(P, state, conf):
         state_hist = np.append(state_hist, state, axis=0)
         current_state = next_state
 
+    store_list_as_json(conf["filepath"], event_json)
     print("state histogram\n", state_hist)
 
 
@@ -232,6 +259,12 @@ if __name__ == "__main__":
                         nargs="?",
                         type=str,
                         help="device name of the tun interface")
+    parser.add_argument("-o",
+                        default="events_ssmm.json",
+                        const="events_ssmm.json",
+                        nargs="?",
+                        type=str,
+                        help="path to the outfile")
     args = parser.parse_args()
 
     conf = {
@@ -246,11 +279,12 @@ if __name__ == "__main__":
         "lam_pe": args.l_pe,
         "server_addr": args.s,
         "client_addr": args.c,
-        "ue_registered": True
+        "ue_registered": True,
+        "filepath": args.o,
     }
 
     g_tun_name = args.d
     g_server_ip = args.s
-    g_tun_ip = get_tun_ip()
+    # g_tun_ip = get_tun_ip()
 
     run(P, state, conf)
