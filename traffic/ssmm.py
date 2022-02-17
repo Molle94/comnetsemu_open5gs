@@ -180,6 +180,10 @@ def run(P, state, conf):
         state_hist = np.append(state_hist, state, axis=0)
         current_state = next_state
 
+    if conf["ue_registered"]:
+        off(conf)
+        state_hist = np.append(state_hist, np.array([[1.0, 0, 0, 0]]), axis=0)
+
     store_list_as_json(conf["filepath"], event_json)
 
     print("state histogram\n", state_hist)
