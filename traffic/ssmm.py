@@ -144,7 +144,7 @@ def run(P, state, conf):
     start = (np.where(state>0))[1]
     current_state = start[0]
     state_hist = state
-    time_until_pu = conf["sojourn_time_pu"]
+    timestamp_next_pu = time.time() + conf["sojourn_time_pu"]
 
     for x in range(conf["num_it"]):
         current_row = np.ma.masked_values((P[current_state]), 0.0)
@@ -155,18 +155,24 @@ def run(P, state, conf):
 
         # Sojourn if we're in OFF state
         if next_state == 1:
-            time.sleep(time_until_pu)
-            time_until_pu = conf["sojourn_time_pu"]
+            time_to_sleep = timestamp_next_pu - time.time()
+            if time_to_sleep > 0:
+                time.sleep(time_to_sleep)
+            else:
+                print(f"Missed pu by {time_to_sleep * -1} seconds")
+            timestamp_next_pu += conf["sojourn_time_pu"]
         elif next_state == 2:
             sojourn_ed = random.expovariate(conf["lam_ed"])
+            time_until_pu = timestamp_next_pu - time.time()
             # Don't miss an entire PU because of an ED
             if sojourn_ed > time_until_pu:
                 sojourn_ed = time_until_pu
 
             # We don't wanna delay the next PU just because of an ED
-            time_until_pu -= sojourn_ed
+            # time_until_pu -= sojourn_ed
 
-            time.sleep(sojourn_ed)
+            if sojourn_ed > 0:
+                time.sleep(sojourn_ed)
 
         s = g_state_table[next_state]
         s(conf)
@@ -175,6 +181,7 @@ def run(P, state, conf):
         current_state = next_state
 
     store_list_as_json(conf["filepath"], event_json)
+
     print("state histogram\n", state_hist)
 
 
