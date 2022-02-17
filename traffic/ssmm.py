@@ -39,7 +39,7 @@ def get_tun_ip():
     return tun_if[0].address
 
 def register_ue(conf):
-    if not conf["ue_registered"]:
+    if not conf["dry_run"] and not conf["ue_registered"]:
         global g_tun_ip
 
         cmd = "./nr-cli imsi-901700000000001 --exec 'ps-establish IPv4 --sst 1 --sd 1 --dnn internet'"
@@ -51,6 +51,9 @@ def register_ue(conf):
         g_tun_ip = get_tun_ip()
 
 def run_iperf(transmit_rate, transmit_bytes=None, transmit_time=None):
+    if conf["dry_run"]:
+        return None
+
     if transmit_bytes is not None:
         cmd = f"iperf3 -c {g_server_ip} -B {g_tun_ip} -n {transmit_bytes} b {transmit_rate}"
     elif transmit_time is not None:
@@ -74,38 +77,40 @@ def get_total_bytes():
 
 def off(conf=None):
     print("off")
-    # if conf["ue_registered"]:
-        # cmd = "./nr-cli imsi-901700000000001 --exec 'deregister disable-5g'"
-        # cmd = shlex.split(cmd)
-        # ret = subprocess.run(cmd)
-        # conf["ue_registered"] = False
+    if not conf["dry_run"] and conf["ue_registered"]:
+        cmd = "./nr-cli imsi-901700000000001 --exec 'deregister disable-5g'"
+        cmd = shlex.split(cmd)
+        ret = subprocess.run(cmd)
+        conf["ue_registered"] = False
+
+    log_event("off", None)
 
 # Let event detection happen after this state as well. Very small probability though
 def periodic_update(conf):
-    # register_ue(conf)
+    register_ue(conf)
 
     transmit_rate = conf["rate_pu"]
     transmit_bytes = conf["bytes_pu"]
 
     print(f"periodic update: rate {transmit_rate}, bytes: {transmit_bytes}")
-    # run_iperf(transmit_rate, transmit_bytes)
+    run_iperf(transmit_rate, transmit_bytes)
 
     log_event("pu", transmit_bytes)
 
 # Maybe try to modify bearer for fast transmission
 def event_driven(conf):
-    # register_ue(conf)
+    register_ue(conf)
 
     transmit_rate = conf["rate_ed"]
     transmit_bytes = get_total_bytes()
 
     print(f"event driven: rate {transmit_rate}, bytes: {transmit_bytes}")
-    # run_iperf(transmit_rate, transmit_bytes)
+    run_iperf(transmit_rate, transmit_bytes)
 
     log_event("ed", transmit_bytes)
 
 def payload_exchange(conf):
-    # register_ue(conf)
+    register_ue(conf)
 
     trasnmit_rate = conf["rate_pe"]
 
@@ -115,7 +120,7 @@ def payload_exchange(conf):
     for burst in range(10):
         transmit_bytes = get_total_bytes()
         transmit_bytes_list.append(transmit_bytes)
-        # run_iperf(trasnmit_rate, transmit_bytes)
+        run_iperf(trasnmit_rate, transmit_bytes)
 
     log_event("pe", transmit_bytes_list)
 
@@ -265,6 +270,9 @@ if __name__ == "__main__":
                         nargs="?",
                         type=str,
                         help="path to the outfile")
+    parser.add_argument("--dry-run",
+                        action='store_true',
+                        help="don't perform registration and transmission")
     args = parser.parse_args()
 
     conf = {
@@ -281,10 +289,12 @@ if __name__ == "__main__":
         "client_addr": args.c,
         "ue_registered": True,
         "filepath": args.o,
+        "dry_run": args.dry_run
     }
 
     g_tun_name = args.d
     g_server_ip = args.s
-    # g_tun_ip = get_tun_ip()
+    if not conf["dry_run"]:
+        g_tun_ip = get_tun_ip()
 
     run(P, state, conf)
