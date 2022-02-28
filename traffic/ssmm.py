@@ -55,9 +55,9 @@ def run_iperf(transmit_rate, transmit_bytes=None, transmit_time=None):
         return None
 
     if transmit_bytes is not None:
-        cmd = f"iperf3 -c {g_server_ip} -B {g_tun_ip} -n {transmit_bytes} b {transmit_rate}"
+        cmd = f"docker exec ue /bin/bash -c 'iperf3 -c {g_server_ip} -B {g_tun_ip} -n {transmit_bytes} -b {transmit_rate}'"
     elif transmit_time is not None:
-        cmd = f"iperf3 -c {g_server_ip} -B {g_tun_ip} -t {transmit_time} b {transmit_rate}"
+        cmd = f"docker exec ue /bin/bash -c 'iperf3 -c {g_server_ip} -B {g_tun_ip} -t {transmit_time} -b {transmit_rate}'"
     else:
         print("ERR: iperf3 needs either transmit_bytes or transmit_time to run")
 
@@ -75,10 +75,12 @@ def get_total_bytes():
         return 1400
 
 
+# Higher layer UEs can trigger CM_IDLE by themself.
+# UERANSIM only allows this from the gNB
 def off(conf=None):
-    print("off")
+    print("\nState: off")
     if not conf["dry_run"] and conf["ue_registered"]:
-        cmd = "./nr-cli imsi-901700000000001 --exec 'deregister disable-5g'"
+        cmd = "docker exec -w /UERANSIM/build gnb /bin/bash -c \"./nr-cli UERANSIM-gnb-901-70-1 -e 'ue-release 1'\""
         cmd = shlex.split(cmd)
         ret = subprocess.run(cmd)
         conf["ue_registered"] = False
@@ -87,40 +89,40 @@ def off(conf=None):
 
 # Let event detection happen after this state as well. Very small probability though
 def periodic_update(conf):
-    register_ue(conf)
+    conf["ue_registered"] = True
 
     transmit_rate = conf["rate_pu"]
     transmit_bytes = conf["bytes_pu"]
 
-    print(f"periodic update: rate {transmit_rate}, bytes: {transmit_bytes}")
+    print(f"\nState: periodic update: rate {transmit_rate}, bytes: {transmit_bytes}")
     run_iperf(transmit_rate, transmit_bytes)
 
     log_event("pu", transmit_bytes)
 
 # Maybe try to modify bearer for fast transmission
 def event_driven(conf):
-    register_ue(conf)
+    conf["ue_registered"] = True
 
     transmit_rate = conf["rate_ed"]
     transmit_bytes = get_total_bytes()
 
-    print(f"event driven: rate {transmit_rate}, bytes: {transmit_bytes}")
+    print(f"\nState: event driven: rate {transmit_rate}, bytes: {transmit_bytes}")
     run_iperf(transmit_rate, transmit_bytes)
 
     log_event("ed", transmit_bytes)
 
 def payload_exchange(conf):
-    register_ue(conf)
+    conf["ue_registered"] = True
 
-    trasnmit_rate = conf["rate_pe"]
+    transmit_rate = conf["rate_pe"]
 
     # Send several burst with payload sizes distributed according to IMIX
-    print(f"payload exchange: rate {trasnmit_rate}")
+    print(f"\nState: payload exchange: rate {transmit_rate}")
     transmit_bytes_list = list()
     for burst in range(10):
         transmit_bytes = get_total_bytes()
         transmit_bytes_list.append(transmit_bytes)
-        run_iperf(trasnmit_rate, transmit_bytes)
+        run_iperf(transmit_rate, transmit_bytes)
 
     log_event("pe", transmit_bytes_list)
 
@@ -167,9 +169,6 @@ def run(P, state, conf):
             # Don't miss an entire PU because of an ED
             if sojourn_ed > time_until_pu:
                 sojourn_ed = time_until_pu
-
-            # We don't wanna delay the next PU just because of an ED
-            # time_until_pu -= sojourn_ed
 
             if sojourn_ed > 0:
                 time.sleep(sojourn_ed)
@@ -305,7 +304,6 @@ if __name__ == "__main__":
 
     g_tun_name = args.d
     g_server_ip = args.s
-    if not conf["dry_run"]:
-        g_tun_ip = get_tun_ip()
-
+    g_tun_ip = args.c
+    
     run(P, state, conf)
