@@ -8,7 +8,7 @@ RUN apt-get update && DEBIAN_FRONTEND="noninteractive" apt-get install -y\
         libgcrypt-dev libssl-dev libidn11-dev libmongoc-dev libbson-dev \
         libyaml-dev libnghttp2-dev libmicrohttpd-dev libcurl4-gnutls-dev \
         libtins-dev meson curl ca-certificates netbase ifupdown net-tools \
-        iputils-ping iptables tcpdump iperf3 mongodb
+        iputils-ping iptables tcpdump iperf3 mongodb libczmq-dev libprotobuf-c-dev protobuf-c-compiler protobuf-compiler python3-zmq python3-protobuf
 
 # apt install gets deprecated nodejs
 RUN curl -fsSL https://deb.nodesource.com/setup_14.x | bash - && apt-get install -y nodejs
