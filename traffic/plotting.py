@@ -5,6 +5,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from math import sqrt
 
+from matplotlib import cycler
+
 plot_files = []
 
 
@@ -17,12 +19,14 @@ def save(figdir, path):
 
 def get_figsize(width, height, span):
     if span:
-        fig_width = 529.22128 / 72  # IEEE text width
+        # fig_width = 529.22128 / 72  # IEEE text width
+        fig_width = (455.24417 - 2.46472) / 72  # tudscr text width
     else:
-        fig_width = 258.61064 / 72  # IEEE column width
+        # fig_width = 258.61064 / 72  # IEEE column width
+        fig_width = (455.24417 - 2.46472 - 238.45387) / 72  # IEEE column width
     if not height:
         golden_mean = (sqrt(5) - 1.0) / 2.0  # Aesthetic ratio
-        fig_height = (258.61064 / 72) * golden_mean  # height in inches
+        fig_height = ((455.24417 - 2.46472 - 238.45387) / 72) * golden_mean  # height in inches
         fig_height = fig_height * 0.9
     else:
         fig_height = height
@@ -38,7 +42,7 @@ def setup(
     rc = {
         "backend": "ps",
         "text.usetex": True,
-        "text.latex.preamble": ["\\usepackage{gensymb}"],
+        "text.latex.preamble": "\\usepackage{gensymb}\n\\usepackage[default]{opensans}",
         "axes.labelsize": 12,  # fontsize for x and y labels (was 10)
         "axes.titlesize": 12,
         "font.size": 12,  # was 10
@@ -47,7 +51,8 @@ def setup(
         "xtick.labelsize": 10, #8,
         "ytick.labelsize": 10, #8,
         "figure.figsize": figsize,
-        "font.family": "serif",
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Open Sans"],
         "figure.subplot.left": l,
         "figure.subplot.right": r,
         "figure.subplot.bottom": b,
@@ -55,6 +60,7 @@ def setup(
         "savefig.dpi": 300,
         "lines.linewidth": 1,
         "errorbar.capsize": 2,
+        "axes.prop_cycle": cycler(color=['#00305d', '#ef7d00', '#65b32e']),
     }
     rc.update(params)
     matplotlib.rcParams.update(rc)
