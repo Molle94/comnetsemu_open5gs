@@ -5,7 +5,7 @@
 About: Simple networkwork topology with one host running the 5GC (Cp and UP),
 another host is running the GNB, and the last one the UE.
 """
-
+import subprocess
 import time
 import argparse
 
@@ -55,7 +55,19 @@ def spawnWindow(dcontainer_name: str, cmd: str = None):
             warn("*** spawnWindow with cmd is not supported for xterm window")
         spawnXtermDocker(dcontainer_name)
 
-def getTopo(interactive):
+
+# https://stackoverflow.com/a/4417735
+def execute(cmd):
+    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
+    for stdout_line in iter(popen.stdout.readline, ""):
+        yield stdout_line
+    popen.stdout.close()
+    return_code = popen.wait()
+    if return_code:
+        raise subprocess.CalledProcessError(return_code, cmd)
+
+
+def getTopo(interactive, run_script, script):
     bind_dir = "/home/vagrant"
     parent_dir = "/home/vagrant/comnetsemu/comnetsemu_open5gs"
 
@@ -220,19 +232,25 @@ def getTopo(interactive):
             CLI(net)
         else:
             info("*** booting 5G core\n")
-            core.sendCmd("./install/etc/open5gs/start_open5gs.sh")
+            core.sendCmd("./install/etc/open5gs/start_open5gs.sh 2> /open5gs/install/var/log/open5gs/startscript.log")
             time.sleep(10)
 
             info("*** starting gNB\n")
-            gnb.sendCmd("./nr-gnb -c /mnt/ueransim/open5gs-gnb.yaml")
+            gnb.sendCmd("./nr-gnb -c /mnt/ueransim/open5gs-gnb.yaml 2>&1 >> /mnt/log/gnb.log")
             time.sleep(2)
 
             info("*** connecting UE\n")
-            ue.sendCmd("./nr-ue -c /mnt/ueransim/open5gs-ue.yaml")
+            ue.sendCmd("./nr-ue -c /mnt/ueransim/open5gs-ue.yaml 2>&1 >> /mnt/log/ue.log")
             # spawnWindow("ue")
             time.sleep(1)
 
-            input("Emulation setup ready. Press enter to terminate ")
+            if run_script:
+                info("*** Emulation setup ready\n")
+
+                for line in execute(script):
+                    info(f"[traffic] {line}")
+            else:
+                input("Emulation setup ready. Press enter to terminate ")
 
 
     except Exception as e:
@@ -274,6 +292,15 @@ if __name__ == "__main__":
                         nargs="?",
                         help="Use tmux instead of xterm")
 
+    parser.add_argument("-r",
+                        default=False,
+                        const=True,
+                        type=bool,
+                        nargs="?",
+                        help="Run traffic script after emulation setup")
+
+    parser.add_argument('script', nargs='*', help="Traffic script to run after emulation setup")
+
     args = parser.parse_args()
 
     if args.d:
@@ -284,4 +311,8 @@ if __name__ == "__main__":
     global use_tmux
     use_tmux = args.t
 
-    getTopo(args.i)
+    if args.i and args.r:
+        error("Can't run traffic script in interactive mode")
+        exit(1)
+
+    getTopo(args.i, args.r, args.script)
