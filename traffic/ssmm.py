@@ -1,4 +1,5 @@
 import argparse
+import datetime
 import time
 import json
 import shlex
@@ -12,19 +13,18 @@ random.seed(time.time())
 
 event_json = list()
 
+
 def store_list_as_json(filename, data):
     with open(filename, "w") as fout:
         json.dump(data, fout, indent=2)
         fout.write("\n")
 
+
 def log_event(event, bytes):
-    event_data = {
-        "event": event,
-        "ts": time.time(),
-        "bytes": bytes
-    }
+    event_data = {"event": event, "ts": time.time(), "bytes": bytes}
 
     event_json.append(event_data)
+
 
 def get_tun_ip():
     ifs = psutil.net_if_addrs()
@@ -38,6 +38,7 @@ def get_tun_ip():
     tun_if = ifs[g_tun_name]
     return tun_if[0].address
 
+
 def register_ue(conf):
     if not conf["dry_run"] and not conf["ue_registered"]:
         global g_tun_ip
@@ -49,6 +50,7 @@ def register_ue(conf):
 
         print("Waiting for tun interface...")
         g_tun_ip = get_tun_ip()
+
 
 def run_iperf(transmit_rate, transmit_bytes=None, transmit_time=None):
     if conf["dry_run"]:
@@ -63,6 +65,7 @@ def run_iperf(transmit_rate, transmit_bytes=None, transmit_time=None):
 
     cmd = shlex.split(cmd)
     return subprocess.run(cmd)
+
 
 # Packet length distribution following IMIX
 def get_total_bytes():
@@ -87,6 +90,7 @@ def off(conf=None):
 
     log_event("off", None)
 
+
 # Let event detection happen after this state as well. Very small probability though
 def periodic_update(conf):
     conf["ue_registered"] = True
@@ -99,6 +103,7 @@ def periodic_update(conf):
 
     log_event("pu", transmit_bytes)
 
+
 # Maybe try to modify bearer for fast transmission
 def event_driven(conf):
     conf["ue_registered"] = True
@@ -110,6 +115,7 @@ def event_driven(conf):
     run_iperf(transmit_rate, transmit_bytes)
 
     log_event("ed", transmit_bytes)
+
 
 def payload_exchange(conf):
     conf["ue_registered"] = True
@@ -126,6 +132,7 @@ def payload_exchange(conf):
 
     log_event("pe", transmit_bytes_list)
 
+
 g_state_table = {
     0: off,
     1: periodic_update,
@@ -133,22 +140,25 @@ g_state_table = {
     3: payload_exchange,
 }
 
+
 def multinomial(v):
     r = np.random.uniform(0.0, 1.0)
     CS = np.cumsum(v)
     CS = np.insert(CS, 0, 0)
-    m = (np.where(CS<r))[0]
-    next_state=m[len(m)-1]
-    
+    m = (np.where(CS < r))[0]
+    next_state = m[len(m) - 1]
+
     return next_state
 
+
 def run(P, state, conf):
-    start = (np.where(state>0))[1]
+    start = (np.where(state > 0))[1]
     current_state = start[0]
     state_hist = state
     timestamp_next_pu = time.time() + conf["sojourn_time_pu"]
 
     for x in range(conf["num_it"]):
+        print(f"Step {x + 1} of {conf['num_it']}")
         current_row = np.ma.masked_values((P[current_state]), 0.0)
         next_state = multinomial(current_row)
 
@@ -194,95 +204,115 @@ if __name__ == "__main__":
     global g_tun_ip
     global g_server_ip
 
-    P = np.array([[0, 0.9, 0.1, 0],
-                  [1, 0, 0, 0],
-                  [0.3, 0, 0, 0.7],
-                  [1, 0, 0, 0]])
+    P = np.array([[0, 0.8, 0.2, 0], [1, 0, 0, 0], [0.3, 0, 0, 0.7], [1, 0, 0, 0]])
     state = np.array([[1.0, 0, 0, 0]])
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("-i",
-                        default=20,
-                        const=20,
-                        nargs="?",
-                        type=int,
-                        help="number of iterations")
-    parser.add_argument("-t_pu",
-                        default=10.0,
-                        const=10.0,
-                        nargs="?",
-                        type=float,
-                        help="sojourn time between PUs [s]")
-    parser.add_argument("-t_tran",
-                        default=1,
-                        const=1,
-                        nargs="?",
-                        type=int,
-                        help="transmission time for PU and ED [s]")
-    parser.add_argument("-r_pu",
-                        default=10000,
-                        const=10000,
-                        nargs="?",
-                        type=int,
-                        help="rate for PU traffic [bit/s]")
-    parser.add_argument("-r_ed",
-                        default=10000,
-                        const=10000,
-                        nargs="?",
-                        type=int,
-                        help="rate for ED traffic [bit/s]")
-    parser.add_argument("-r_pe",
-                        default=1000000,
-                        const=1000000,
-                        nargs="?",
-                        type=int,
-                        help="rate for PE traffic [bit/s]")
-    parser.add_argument("b_pu",
-                        default=100,
-                        const=100,
-                        nargs="?",
-                        type=int,
-                        help="number of bytes to tranmit for a peridoc update")
-    parser.add_argument("-l_ed",
-                        default=0.3,
-                        const=0.4,
-                        nargs="?",
-                        type=float,
-                        help="lambda for sojourn time before ED")
-    parser.add_argument("-l_pe",
-                        default=0.05,
-                        const=0.05,
-                        nargs="?",
-                        type=float,
-                        help="lambda for transmission time for PE")
-    parser.add_argument("-s",
-                        default="10.45.0.1",
-                        const="10.45.0.1",
-                        nargs="?",
-                        type=str,
-                        help="ipv4 address of the iperf3 server")
-    parser.add_argument("-c",
-                        default="10.45.0.2",
-                        const="10.45.0.2",
-                        nargs="?",
-                        type=str,
-                        help="ipv4 address of the iperf3 client")
-    parser.add_argument("-d",
-                        default="uesimtun0",
-                        const="uesimtun0",
-                        nargs="?",
-                        type=str,
-                        help="device name of the tun interface")
-    parser.add_argument("-o",
-                        default="events_ssmm.json",
-                        const="events_ssmm.json",
-                        nargs="?",
-                        type=str,
-                        help="path to the outfile")
-    parser.add_argument("--dry-run",
-                        action='store_true',
-                        help="don't perform registration and transmission")
+    parser.add_argument(
+        "-i", default=20, const=20, nargs="?", type=int, help="number of iterations"
+    )
+    parser.add_argument(
+        "-t_pu",
+        default=10.0,
+        const=10.0,
+        nargs="?",
+        type=float,
+        help="sojourn time between PUs [s]",
+    )
+    parser.add_argument(
+        "-t_tran",
+        default=1,
+        const=1,
+        nargs="?",
+        type=int,
+        help="transmission time for PU and ED [s]",
+    )
+    parser.add_argument(
+        "-r_pu",
+        default=10000,
+        const=10000,
+        nargs="?",
+        type=int,
+        help="rate for PU traffic [bit/s]",
+    )
+    parser.add_argument(
+        "-r_ed",
+        default=10000,
+        const=10000,
+        nargs="?",
+        type=int,
+        help="rate for ED traffic [bit/s]",
+    )
+    parser.add_argument(
+        "-r_pe",
+        default=1000000,
+        const=1000000,
+        nargs="?",
+        type=int,
+        help="rate for PE traffic [bit/s]",
+    )
+    parser.add_argument(
+        "b_pu",
+        default=100,
+        const=100,
+        nargs="?",
+        type=int,
+        help="number of bytes to tranmit for a peridoc update",
+    )
+    parser.add_argument(
+        "-l_ed",
+        default=0.3,
+        const=0.4,
+        nargs="?",
+        type=float,
+        help="lambda for sojourn time before ED",
+    )
+    parser.add_argument(
+        "-l_pe",
+        default=0.05,
+        const=0.05,
+        nargs="?",
+        type=float,
+        help="lambda for transmission time for PE",
+    )
+    parser.add_argument(
+        "-s",
+        default="10.45.0.1",
+        const="10.45.0.1",
+        nargs="?",
+        type=str,
+        help="ipv4 address of the iperf3 server",
+    )
+    parser.add_argument(
+        "-c",
+        default="10.45.0.2",
+        const="10.45.0.2",
+        nargs="?",
+        type=str,
+        help="ipv4 address of the iperf3 client",
+    )
+    parser.add_argument(
+        "-d",
+        default="uesimtun0",
+        const="uesimtun0",
+        nargs="?",
+        type=str,
+        help="device name of the tun interface",
+    )
+    parser.add_argument(
+        "-o",
+        default=None,
+        const="events_ssmm-202203021127.json",
+        nargs="?",
+        type=str,
+        help="path to the outfile",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="don't perform registration and transmission",
+    )
     args = parser.parse_args()
 
     conf = {
@@ -298,12 +328,14 @@ if __name__ == "__main__":
         "server_addr": args.s,
         "client_addr": args.c,
         "ue_registered": True,
-        "filepath": args.o,
-        "dry_run": args.dry_run
+        "filepath": args.o if args.o else f"events_ssmm-{datetime.datetime.now().strftime('%Y%m%d%H%M')}.json",
+        "dry_run": args.dry_run,
     }
 
     g_tun_name = args.d
     g_server_ip = args.s
     g_tun_ip = args.c
+
+    print(conf["filepath"])
     
     run(P, state, conf)
